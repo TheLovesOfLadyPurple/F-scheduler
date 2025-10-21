@@ -99,7 +99,7 @@ def main():
     parser.add_argument(
         "--steps",
         type=int,
-        default=5,
+        default=6,
         help="number of sampling steps",
     )
     parser.add_argument("--method", default="dpm_solver_v3", choices=["ddim", "plms", "dpm_solver++", "uni_pc", "dpm_solver_v3"])
@@ -149,7 +149,7 @@ def main():
         default=42,
         help="the seed (for reproducible sampling)",
     )
-    parser.add_argument("--statistics_dir", type=str, default='./ems/statistics/sdv1-5', help="Statistics path for DPM-Solver-v3.")
+    parser.add_argument("--statistics_dir", type=str, default='./7.5_250_1024', help="Statistics path for DPM-Solver-v3.")
     parser.add_argument(
         "--config",
         type=str,

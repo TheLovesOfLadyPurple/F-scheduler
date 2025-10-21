@@ -146,7 +146,7 @@ def get_noise_fn(sde, model, train=False, continuous=False):
             # For VP-trained models, t=0 corresponds to the lowest noise level
             # The maximum value of time embedding is assumed to 999 for
             # continuously-trained models.
-            labels = t * 999
+            labels = (t * 999)
             noise = model_fn(x, labels, encoder_hidden_states=encoder_hidden_states)
             return noise
 
