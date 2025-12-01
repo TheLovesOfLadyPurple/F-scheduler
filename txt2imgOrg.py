@@ -153,7 +153,7 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default='a painting of a virus monster playing guitar',
+        default='an astronaut riding a horse',
         help="text to generate images",
     )
     parser.add_argument(

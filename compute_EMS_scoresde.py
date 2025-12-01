@@ -63,10 +63,11 @@ def get_time_steps(ns, skip_type, t_T, t_0, N, device):
 def get_noise_and_jvp_x(x, t, v, noise_pred_fn, uc):
     def fn(data):
         return noise_pred_fn(data, torch.ones(data.shape[0], device=data.device) * t, encoder_hidden_states=uc)
-    with sdpa_kernel(SDPBackend.MATH):
-        with fwAD.dual_level():
-            dual_x = fwAD.make_dual(x, v)
-            noise, noise_jvp_x = fwAD.unpack_dual(fn(dual_x))
+    noise, noise_jvp_x = torch.autograd.functional.jvp(fn, x, v=v, create_graph=False, strict=False)
+    # with sdpa_kernel(SDPBackend.MATH):
+    #     with fwAD.dual_level():
+    #         dual_x = fwAD.make_dual(x, v)
+    #         noise, noise_jvp_x = fwAD.unpack_dual(fn(dual_x))
     return noise, noise_jvp_x
 
 

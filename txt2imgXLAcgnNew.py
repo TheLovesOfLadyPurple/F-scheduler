@@ -17,10 +17,11 @@ from pycocotools.coco import COCO
 from diffusers import (
     StableDiffusionPipeline,
     DPMSolverMultistepScheduler,
-    UniPCMultistepScheduler,
     AutoencoderKL,
     StableDiffusionXLPipeline
 )
+from customed_unipc_scheduler import CustomedUniPCMultistepScheduler
+from test_unipc_scheduler import UniPCMultistepScheduler
 from huggingface_hub import hf_hub_download
 from SVDNoiseUnet import NPNet64
 import functools
@@ -29,7 +30,6 @@ from transformers import AutoTokenizer, CLIPTextModel, PretrainedConfig
 from diffusers.optimization import get_scheduler
 from diffusers.utils import check_min_version, is_wandb_available
 from diffusers.utils.import_utils import is_xformers_available
-from SVDNoiseUnet import NPNet128
 
 import json
 import subprocess
@@ -44,6 +44,60 @@ def extract_into_tensor(a, t, x_shape):
 
 def append_zero(x):
     return torch.cat([x, x.new_zeros([1])])
+
+def prepare_sdxl_pipeline_step_parameter( pipe: StableDiffusionXLPipeline
+                                         , prompts
+                                         , need_cfg
+                                         , device
+                                         , negative_prompt = None
+                                         , W = 1024
+                                         , H = 1024): # need to correct the format
+        (
+            prompt_embeds,
+            negative_prompt_embeds,
+            pooled_prompt_embeds,
+            negative_pooled_prompt_embeds,
+        ) = pipe.encode_prompt(
+            prompt=prompts,
+            negative_prompt=negative_prompt,
+            device=device,
+            do_classifier_free_guidance=need_cfg,
+        )
+    # timesteps = pipe.scheduler.timesteps
+    
+        prompt_embeds = prompt_embeds.to(device)
+        add_text_embeds = pooled_prompt_embeds.to(device)
+        original_size = (W, H)
+        crops_coords_top_left = (0, 0)
+        target_size = (W, H)
+        text_encoder_projection_dim = None
+        add_time_ids = list(original_size + crops_coords_top_left + target_size)
+        if pipe.text_encoder_2 is None:
+            text_encoder_projection_dim = int(pooled_prompt_embeds.shape[-1])
+        else:
+            text_encoder_projection_dim = pipe.text_encoder_2.config.projection_dim
+        passed_add_embed_dim = (
+            pipe.unet.config.addition_time_embed_dim * len(add_time_ids) + text_encoder_projection_dim
+        )
+        expected_add_embed_dim = pipe.unet.add_embedding.linear_1.in_features
+        if expected_add_embed_dim != passed_add_embed_dim:
+            raise ValueError(
+                f"Model expects an added time embedding vector of length {expected_add_embed_dim}, but a vector of {passed_add_embed_dim} was created. The model has an incorrect config. Please check `unet.config.time_embedding_type` and `text_encoder_2.config.projection_dim`."
+            )
+        add_time_ids = torch.tensor([add_time_ids], dtype=prompt_embeds.dtype)
+        add_time_ids = add_time_ids.to(device)
+        negative_add_time_ids = add_time_ids
+
+        if need_cfg:
+            prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
+            add_text_embeds = torch.cat([negative_pooled_prompt_embeds, add_text_embeds], dim=0)
+            add_time_ids = torch.cat([negative_add_time_ids, add_time_ids], dim=0)
+        ret_dict = {
+            "text_embeds": add_text_embeds,
+            "time_ids": add_time_ids
+        }
+        return prompt_embeds, ret_dict
+
 
 # New helper to load a list-of-dicts preference JSON
 # JSON schema: [ { 'human_preference': [int], 'prompt': str, 'file_path': [str] }, ... ]
@@ -168,20 +222,20 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default='A man holding a cell phone with a pack of Marlboro Lights on his lap',
+        default='((masterpiece,best quality)) , 1girl, ((school uniform)),brown blazer, black skirt,small breasts,necktie,red plaid skirt,looking at viewer',#'A man holding a cell phone with a pack of Marlboro Lights on his lap',
         help="text to generate images",
     )
     parser.add_argument(
         "--npnet-checkpoint",
         type=str,
-        default='./sdxl.pth',
+        default='./HPSFilterFix.pth',
         help="if specified, load prompts from this file",
     )
     
     parser.add_argument(
         "--use_free_net",
         action='store_true',
-        default=False,
+        default=True,
         help="use the free network for inference.",
     )
     parser.add_argument(
@@ -211,7 +265,7 @@ def main():
     parser.add_argument(
         "--is_acgn",
         action='store_true',
-        default=False,
+        default=True,
         help="use the 8 full trick for inference.",
     )
     parser.add_argument(
@@ -233,6 +287,12 @@ def main():
         choices=["full", "autocast"],
         default="autocast"
     )
+    parser.add_argument(
+        "--start_free_u_step",
+        type=int,
+        default=-1,
+        help="starting step for free U-Net",
+    )
     
     opt = parser.parse_args()
 
@@ -240,38 +300,22 @@ def main():
     device = accelerator.device
     
     seed_everything(opt.seed)
-    npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
 
     DTYPE = torch.float16  # torch.float16 works as well, but pictures seem to be a bit worse
     device = "cuda" 
-    if opt.is_acgn:
-        vae = AutoencoderKL.from_single_file("./sdxl_vae_fp16.safetensors", torch_dtype=torch.float16)
-        vae.to('cuda')
+    vae = AutoencoderKL.from_single_file("./sdxl_vae_fp16.safetensors", torch_dtype=torch.float16)
+    vae.to('cuda')
     
-        pipe = StableDiffusionXLPipeline.from_single_file("./novaAnimeXL_ilV120.safetensors",torch_dtype=torch.float16,vae=vae)
-        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-        pipe.to('cuda')
-        # pipe.to(device=device, torch_dtype=DTYPE)
-    else:
-    # pipe = StableDiffusionPipeline.from_pretrained('CompVis/stable-diffusion-v1-4')
-        
-        repo_id = "madebyollin/sdxl-vae-fp16-fix"  # e.g., "distilbert/distilgpt2"
-        filename = "sdxl_vae.safetensors"  # e.g., "pytorch_model.bin"
-        downloaded_path = hf_hub_download(repo_id=repo_id, filename=filename,cache_dir=".")
+    pipe = StableDiffusionXLPipeline.from_single_file("./novaAnimeXL_ilV120.safetensors",torch_dtype=torch.float16,vae=vae)
+    # pipe = StableDiffusionXLPipeline.from_pretrained(
+    #     "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=DTYPE, vae=vae
+    # )
+    scheduler = CustomedUniPCMultistepScheduler.from_config(pipe.scheduler.config
+                                                            , solver_order = 2 if opt.ddim_steps==8 else 1
+                                                            ,denoise_to_zero = False)
+    pipe.scheduler = scheduler
+    pipe.to('cuda')
 
-        # pipe = StableDiffusionPipeline.from_pretrained('CompVis/stable-diffusion-v1-4')
-        vae = AutoencoderKL.from_single_file(downloaded_path, torch_dtype=DTYPE)
-    
-        pipe = StableDiffusionXLPipeline.from_pretrained("Lykon/dreamshaper-xl-1-0",torch_dtype=DTYPE,vae=vae)
-        pipe.to('cuda')
-        pipe.to(device=device, torch_dtype=DTYPE)
-    # pipe = StableDiffusionXLPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0",torch_dtype=torch.float16,vae=vae)
-    
-    if opt.use_free_net:
-        register_free_upblock2d(pipe, b1=1.1, b2=1.1, s1=0.9, s2=0.2)
-        register_free_crossattn_upblock2d(pipe, b1=1.1, b2=1.1, s1=0.9, s2=0.2)
-    
-    
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir
 
@@ -304,32 +348,56 @@ def main():
             for n in trange(opt.n_iter, desc="Sampling", disable =not accelerator.is_main_process):
                 for prompts in tqdm(data, desc="data", disable=not accelerator.is_main_process):
                     
-                    # torch.cuda.empty_cache()
                     intermediate_photos = list()
-                    # prompts = prompts[0]
-                            
-                    # if isinstance(prompts, tuple) or isinstance(prompts, str):
-                    #     prompts = list(prompts)
-                    if isinstance(prompts, str):
-                        prompts = prompts #+ 'high quality, best quality, masterpiece, 4K, highres, extremely detailed, ultra-detailed'
-                        prompts = (prompts,)
-                    if isinstance(prompts, tuple) or isinstance(prompts, str):
-                        prompts = list(prompts)
-                    if not opt.is_acgn:
-                        x_samples_ddim = pipe(prompt=prompts,num_inference_steps=opt.ddim_steps,guidance_scale=opt.scale,height=opt.H,width=opt.W).images
-                    else:
-                        negative_prompt = ''
-                        negative_prompt = batch_size * [negative_prompt]
-                        x_samples_ddim = pipe(prompt=prompts
-                                              ,negative_prompt=negative_prompt
-                                              ,num_inference_steps=opt.ddim_steps
-                                              ,guidance_scale=opt.scale
-                                              ,height=opt.H
-                                              ,width=opt.W).images
+                    
+                    latents = torch.randn(
+                        (batch_size, pipe.unet.config.in_channels, opt.H // 8, opt.W // 8),
+                        device=device,
+                    )
+                    latents = latents * pipe.scheduler.init_noise_sigma
+                    
+                    pipe.scheduler.set_timesteps(opt.ddim_steps)
+                    idx = 0
+                    register_free_upblock2d(pipe, b1=1.0, b2=1.0, s1=1.0, s2=1.0)
+                    register_free_crossattn_upblock2d(pipe, b1=1.0, b2=1.0, s1=1.0, s2=1.0)
+                    for t in tqdm(pipe.scheduler.timesteps):
+                        # Still not enough. I will tell you, what is the best implementation.  Although not via the following code.
+                        
+                        # if idx == len(pipe.scheduler.timesteps) - 1: 
+                        #     break
+                        if idx == opt.start_free_u_step and opt.start_free_u_step >=0:
+                            register_free_upblock2d(pipe, b1=1.2, b2=1.2, s1=0.9, s2=0.9)
+                            register_free_crossattn_upblock2d(pipe, b1=1.2, b2=1.2, s1=0.9, s2=0.9)
+                        latent_model_input  = torch.cat([latents] * 2)
+                        
+                        latent_model_input  = pipe.scheduler.scale_model_input(latent_model_input , timestep=t)
+                        negative_prompts = ''#'(worst quality:2), (low quality:2), (normal quality:2), bad anatomy, bad proportions, poorly drawn face, poorly drawn hands, missing fingers, extra limbs, blurry, pixelated, distorted, lowres, jpeg artifacts, watermark, signature, text, (deformed:1.5), (bad hands:1.3), overexposed, underexposed, censored, mutated, extra fingers, cloned face, bad eyes'
+                        negative_prompts = batch_size * [negative_prompts]
+                        
+                        prompt_embeds, cond_kwargs = prepare_sdxl_pipeline_step_parameter(pipe
+                                                                                      , prompts
+                                                                                      , need_cfg=True
+                                                                                      , device=pipe.device
+                                                                                      , negative_prompt=negative_prompts
+                                                                                      , W=opt.W
+                                                                                      , H=opt.H)
+                        noise_pred  = pipe.unet(latent_model_input 
+                                        , t
+                                        , encoder_hidden_states=prompt_embeds.to(device=latents.device, dtype=latents.dtype)
+                                        , added_cond_kwargs=cond_kwargs).sample
+                        uncond, cond = noise_pred.chunk(2)
+                        noise_pred  = uncond + (cond - uncond) * opt.scale
+                        latents = pipe.scheduler.step(noise_pred, t, latents).prev_sample
+                        idx += 1
+                        
+                    x_samples_ddim = pipe.vae.decode(latents / pipe.vae.config.scaling_factor).sample
+                    x_samples_ddim = torch.clamp((x_samples_ddim + 1.0) / 2.0, min=0.0, max=1.0)
                     if True:
                         for x_sample in x_samples_ddim:
-                            # x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                            x_sample.save(os.path.join(sample_path, f"{base_count:05}.png"))
+                                # x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                            x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
+                            Image.fromarray(x_sample.astype(np.uint8)).save(
+                                os.path.join(sample_path, f"{base_count:05}.png"))
                             base_count += 1
 
                             

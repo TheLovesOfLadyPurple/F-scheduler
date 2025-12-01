@@ -390,7 +390,11 @@ def model_wrapper(
             else:
                 x_in = torch.cat([x] * 2)
                 t_in = torch.cat([t_continuous] * 2)
-                c_in = torch.cat([unconditional_condition, condition])
+                if isinstance(condition, torch.Tensor) and ( isinstance(unconditional_condition, torch.Tensor) or unconditional_condition is None ):
+                    c_in = torch.cat([unconditional_condition, condition])
+                else:
+                    c_in = [condition, unconditional_condition]
+                # c_in = torch.cat([unconditional_condition, condition])
                 noise_uncond, noise = noise_pred_fn(x_in, t_in, cond=c_in).chunk(2)
                 return noise_uncond + guidance_scale * (noise - noise_uncond)
 
