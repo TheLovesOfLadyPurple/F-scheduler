@@ -215,6 +215,7 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         skip_type: str = "customed_time_karras",
         denoise_to_zero: bool = False,
         rescale_betas_zero_snr: bool = False,
+        use_afs: bool = False
     ):
         
         if self.config.use_beta_sigmas and not is_scipy_available():
@@ -237,6 +238,7 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
             raise NotImplementedError(f"{beta_schedule} is not implemented for {self.__class__}")
 
         self.skip_type = skip_type
+        self.use_afs = use_afs
         self.denoise_to_zero = denoise_to_zero
         if rescale_betas_zero_snr:
             self.betas = rescale_zero_terminal_snr(self.betas)
@@ -362,10 +364,14 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 if self.denoise_to_zero:
                     ct_real_end = self._sigma_to_t(sigmas[-1], log_sigmas)
                 timesteps = self.get_sigmas_karras(8, ct_end, ct_start,rho=1.2, customed_final_sigma= ct_real_end if self.denoise_to_zero else None)
-                timesteps_tmp = copy.deepcopy(timesteps)
-                timesteps_tmp = np.append(timesteps_tmp, self._sigma_to_t(sigmas[-1], log_sigmas))
-                sigmas = np.array([self._t_to_sigma(t, log_sigmas) for t in timesteps_tmp])
 
+        if self.use_afs:
+            np.insert(timesteps,1,(timesteps[0]+timesteps[1]) / 2)
+
+
+        timesteps_tmp = copy.deepcopy(timesteps)
+        timesteps_tmp = np.append(timesteps_tmp, self._sigma_to_t(sigmas[-1], log_sigmas))
+        sigmas = np.array([self._t_to_sigma(t, log_sigmas) for t in timesteps_tmp])
         self.sigmas = torch.from_numpy(sigmas)
         self.timesteps = torch.from_numpy(timesteps).to(device=device) 
 
@@ -444,7 +450,7 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
     
     def _t_to_sigma(self, t, log_sigmas):
         # t = t
-        low_idx, high_idx, w = np.int64(np.floor(t)), np.int64(np.ceil(t)), t - np.floor(t)
+        low_idx, high_idx, w = np.int64(np.floor(t)), np.clip(np.int64(np.ceil(t)),a_min=0,a_max=999) , t - np.floor(t)
         log_sigma = (1 - w) * log_sigmas[low_idx] + w * log_sigmas[high_idx]
         return np.exp(log_sigma)
 

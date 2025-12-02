@@ -222,7 +222,7 @@ def main():
     parser.add_argument(
         "--prompt",
         type=str,
-        default='((masterpiece,best quality)) , 1girl, ((school uniform)),brown blazer, black skirt,small breasts,necktie,red plaid skirt,looking at viewer',#'A man holding a cell phone with a pack of Marlboro Lights on his lap',
+        default='masterpiece, best quality, amazing quality, 4k, very aesthetic, high resolution, ultra-detailed, absurdres, newest, scenery, colorful, 1girl, solo, cute, pink hair, long hair, choppy bangs, long sidelocks, nebulae cosmic purple eyes, rimlit eyes, facing to the side, looking at viewer, downturned eyes, light smile, red annular solar eclipse halo, red choker, detailed purple serafuku, big red neckerchief, (glowing stars in hand:1.2), fingers, dispersion_\(optics\), arched back, from side, from below, dutch angle, portrait, upper body, head tilt, colorful, rim light, backlit, (colorful light particles:1.2), cosmic sky, aurora, chaos, perfect night, fantasy background, dreamlike atmosphere, BREAK, detailed background, blurry foreground, bokeh, depth of field, volumetric lighting' ,#'((masterpiece,best quality)) , 1girl, ((school uniform)),brown blazer, black skirt,small breasts,necktie,red plaid skirt,looking at viewer',#'A man holding a cell phone with a pack of Marlboro Lights on his lap',
         help="text to generate images",
     )
     parser.add_argument(
@@ -293,6 +293,12 @@ def main():
         default=-1,
         help="starting step for free U-Net",
     )
+    parser.add_argument(
+        "--use_afs",
+        action='store_true',
+        default=True,
+        help="use the 8 full trick for inference.",
+    )
     
     opt = parser.parse_args()
 
@@ -303,16 +309,19 @@ def main():
 
     DTYPE = torch.float16  # torch.float16 works as well, but pictures seem to be a bit worse
     device = "cuda" 
-    vae = AutoencoderKL.from_single_file("./sdxl_vae_fp16.safetensors", torch_dtype=torch.float16)
+    repo_id = "madebyollin/sdxl-vae-fp16-fix"  # e.g., "distilbert/distilgpt2"
+    vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix",torch_dtype=DTYPE) #from_single_file(downloaded_path, torch_dtype=torch_dtype)
     vae.to('cuda')
     
-    pipe = StableDiffusionXLPipeline.from_single_file("./novaAnimeXL_ilV120.safetensors",torch_dtype=torch.float16,vae=vae)
+    pipe = StableDiffusionXLPipeline.from_pretrained("John6666/nova-anime-xl-il-v120-sdxl",torch_dtype=DTYPE,vae=vae)
+
     # pipe = StableDiffusionXLPipeline.from_pretrained(
     #     "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=DTYPE, vae=vae
     # )
     scheduler = CustomedUniPCMultistepScheduler.from_config(pipe.scheduler.config
                                                             , solver_order = 2 if opt.ddim_steps==8 else 1
-                                                            ,denoise_to_zero = False)
+                                                            ,denoise_to_zero = False
+                                                            , use_afs = opt.use_afs)
     pipe.scheduler = scheduler
     pipe.to('cuda')
 
@@ -371,7 +380,7 @@ def main():
                         latent_model_input  = torch.cat([latents] * 2)
                         
                         latent_model_input  = pipe.scheduler.scale_model_input(latent_model_input , timestep=t)
-                        negative_prompts = ''#'(worst quality:2), (low quality:2), (normal quality:2), bad anatomy, bad proportions, poorly drawn face, poorly drawn hands, missing fingers, extra limbs, blurry, pixelated, distorted, lowres, jpeg artifacts, watermark, signature, text, (deformed:1.5), (bad hands:1.3), overexposed, underexposed, censored, mutated, extra fingers, cloned face, bad eyes'
+                        negative_prompts = '(worst quality:2), (low quality:2), (normal quality:2), bad anatomy, bad proportions, poorly drawn face, poorly drawn hands, missing fingers, extra limbs, blurry, pixelated, distorted, lowres, jpeg artifacts, watermark, signature, text, (deformed:1.5), (bad hands:1.3), overexposed, underexposed, censored, mutated, extra fingers, cloned face, bad eyes'
                         negative_prompts = batch_size * [negative_prompts]
                         
                         prompt_embeds, cond_kwargs = prepare_sdxl_pipeline_step_parameter(pipe
@@ -381,7 +390,10 @@ def main():
                                                                                       , negative_prompt=negative_prompts
                                                                                       , W=opt.W
                                                                                       , H=opt.H)
-                        noise_pred  = pipe.unet(latent_model_input 
+                        if t == 999 and opt.use_afs:
+                            noise_pred = latent_model_input * 0.975
+                        else:
+                            noise_pred  = pipe.unet(latent_model_input 
                                         , t
                                         , encoder_hidden_states=prompt_embeds.to(device=latents.device, dtype=latents.dtype)
                                         , added_cond_kwargs=cond_kwargs).sample
