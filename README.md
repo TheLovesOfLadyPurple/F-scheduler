@@ -1,4 +1,4 @@
-## Hyperparameters-are-all-you-need
+## Hyperparameters-are-all-you-need [[Huggingface Repo](https://huggingface.co/spaces/coralLight/Hyperparameters-are-all-you-need-UniPC-Dreamshaper)]
 
 <div align="center">
 <img src=gen_img_val_xl/comparison_grid_small.jpg />
