@@ -168,7 +168,7 @@ def main():
     parser.add_argument(
         "--ddim_steps",
         type=int,
-        default=6,
+        default=7,
         help="number of ddim sampling steps",
     )
     parser.add_argument(
@@ -299,6 +299,12 @@ def main():
         default=True,
         help="use the 8 full trick for inference.",
     )
+    parser.add_argument(
+        "--use_free_predictor",
+        action='store_true',
+        default=False,
+        help="use the 8 full trick for inference.",
+    )
     
     opt = parser.parse_args()
 
@@ -321,7 +327,8 @@ def main():
     scheduler = CustomedUniPCMultistepScheduler.from_config(pipe.scheduler.config
                                                             , solver_order = 2 if opt.ddim_steps==8 else 1
                                                             ,denoise_to_zero = False
-                                                            , use_afs = opt.use_afs)
+                                                            , use_afs = opt.use_afs
+                                                            , use_free_predictor = opt.use_free_predictor)
     pipe.scheduler = scheduler
     pipe.to('cuda')
 
@@ -390,15 +397,18 @@ def main():
                                                                                       , negative_prompt=negative_prompts
                                                                                       , W=opt.W
                                                                                       , H=opt.H)
-                        if t == 999 and opt.use_afs:
+                        if idx == 0 and opt.use_afs:
                             noise_pred = latent_model_input * 0.975
+                        elif idx == len(pipe.scheduler.timesteps) - 1 and opt.use_free_predictor:
+                            noise_pred = None
                         else:
                             noise_pred  = pipe.unet(latent_model_input 
                                         , t
                                         , encoder_hidden_states=prompt_embeds.to(device=latents.device, dtype=latents.dtype)
                                         , added_cond_kwargs=cond_kwargs).sample
-                        uncond, cond = noise_pred.chunk(2)
-                        noise_pred  = uncond + (cond - uncond) * opt.scale
+                        if noise_pred is not None:
+                            uncond, cond = noise_pred.chunk(2)
+                            noise_pred  = uncond + (cond - uncond) * opt.scale
                         latents = pipe.scheduler.step(noise_pred, t, latents).prev_sample
                         idx += 1
                         

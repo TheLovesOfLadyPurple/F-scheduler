@@ -125,7 +125,8 @@ class UniPCSampler:
                  , pipe
                  , model_closure
                  , steps
-                 , guidance_scale,denoise_to_zero=False
+                 , guidance_scale
+                 , denoise_to_zero=False
                  , need_fp16_discrete_method = False
                  , ultilize_vae_in_fp16 = False
                  , is_high_resoulution = True

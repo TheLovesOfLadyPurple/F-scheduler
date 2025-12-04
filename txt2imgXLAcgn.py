@@ -155,14 +155,14 @@ def main():
         "--prompt",
         type=str,
         nargs="?",
-        default="A man holding a cell phone with a pack of Marlboro Lights on his lap",
+        default="masterpiece, best quality, amazing quality, 4k, very aesthetic, high resolution, ultra-detailed, absurdres, newest, scenery, colorful, 1girl, solo, cute, pink hair, long hair, choppy bangs, long sidelocks, nebulae cosmic purple eyes, rimlit eyes, facing to the side, looking at viewer, downturned eyes, light smile, red annular solar eclipse halo, red choker, detailed purple serafuku, big red neckerchief, (glowing stars in hand:1.2), fingers, dispersion_\(optics\), arched back, from side, from below, dutch angle, portrait, upper body, head tilt, colorful, rim light, backlit, (colorful light particles:1.2), cosmic sky, aurora, chaos, perfect night, fantasy background, dreamlike atmosphere, BREAK, detailed background, blurry foreground, bokeh, depth of field, volumetric lighting",
         help="the prompt to render",
     )
     parser.add_argument(
         "--unconditional_prompt",
         type=str,
         nargs="?",
-        default="",
+        default="(worst quality:2), (low quality:2), (normal quality:2), bad anatomy, bad proportions, poorly drawn face, poorly drawn hands, missing fingers, extra limbs, blurry, pixelated, distorted, lowres, jpeg artifacts, watermark, signature, text, (deformed:1.5), (bad hands:1.3), overexposed, underexposed, censored, mutated, extra fingers, cloned face, bad eyes",
         help="the unconditional prompt to render",
     )
     parser.add_argument(
@@ -267,7 +267,7 @@ def main():
     parser.add_argument(
         "--start_free_u_step",
         type=int,
-        default=-1,
+        default=4,
         help="starting step for free U-Net",
     )
     parser.add_argument(
@@ -289,17 +289,14 @@ def main():
     vae = AutoencoderKL.from_single_file(downloaded_path, torch_dtype=DTYPE)
     vae.to('cuda')
     
-    # pipe = StableDiffusionXLPipeline.from_single_file("./novaAnimeXL_ilV120.safetensors",torch_dtype=DTYPE,vae=vae)
-    pipe = StableDiffusionXLPipeline.from_pretrained(
-        "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=DTYPE, vae=vae
-    )
+    pipe = StableDiffusionXLPipeline.from_single_file("./novaAnimeXL_ilV120.safetensors",torch_dtype=DTYPE,vae=vae)
+    # pipe = StableDiffusionXLPipeline.from_pretrained(
+    #     "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=DTYPE, vae=vae
+    # )
     pipe.to('cuda')
     sampler = UniPCSampler(pipe,model_closure=model_closure
                            , steps=opt.steps
-                           , guidance_scale=opt.scale
-                           , denoise_to_zero=True
-                           , need_fp16_discrete_method=True
-                           , force_not_use_afs=True)
+                           , guidance_scale=opt.scale)
 
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir

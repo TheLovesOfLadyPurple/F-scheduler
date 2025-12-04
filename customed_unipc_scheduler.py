@@ -213,9 +213,10 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         steps_offset: int = 0,
         final_sigmas_type: Optional[str] = "zero",  # "zero", "sigma_min"
         skip_type: str = "customed_time_karras",
-        denoise_to_zero: bool = False,
         rescale_betas_zero_snr: bool = False,
-        use_afs: bool = False
+        use_afs: bool = False,
+        use_free_predictor = False,
+        ultilize_vae = False
     ):
         
         if self.config.use_beta_sigmas and not is_scipy_available():
@@ -238,8 +239,9 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
             raise NotImplementedError(f"{beta_schedule} is not implemented for {self.__class__}")
 
         self.skip_type = skip_type
+        self.use_free_predictor = use_free_predictor
         self.use_afs = use_afs
-        self.denoise_to_zero = denoise_to_zero
+        self.ultilize_vae = ultilize_vae
         if rescale_betas_zero_snr:
             self.betas = rescale_zero_terminal_snr(self.betas)
 
@@ -318,7 +320,7 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 The device to which the timesteps should be moved to. If `None`, the timesteps are not moved.
         """
         # "linspace", "leading", "trailing" corresponds to annotation of Table 2. of https://huggingface.co/papers/2305.08891
-
+        self.ultilize_vae = self.ultilize_vae and num_inference_steps >=5
         sigmas = np.array(((1 - self.alphas_cumprod) / self.alphas_cumprod) ** 0.5)
         if self.skip_type == "customed_time_karras":
             sigma_T = sigmas[-1]
@@ -329,51 +331,59 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
                 sigmas = self.get_sigmas_karras(12, sigma_0, sigma_T, rho=7.0)
                 ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
                 ct_end = self._sigma_to_t(sigmas[9], log_sigmas)
-                if self.denoise_to_zero:
-                    ct_real_end = self._sigma_to_t(sigmas[-1], log_sigmas)
-                timesteps = self.get_sigmas_karras(9, ct_end, ct_start,rho=1.2, customed_final_sigma= ct_real_end if self.denoise_to_zero else None)
+                timesteps = self.get_sigmas_karras(9 + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
             elif N == 5:
-                log_sigmas = np.log(sigmas)
-                sigmas = self.get_sigmas_karras(8, sigma_0, sigma_T, rho=5.0)
-                ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
-                ct_end = self._sigma_to_t(sigmas[6], log_sigmas)
-                if self.denoise_to_zero:
-                    ct_real_end = self._sigma_to_t(sigmas[-1], log_sigmas)
-                timesteps = self.get_sigmas_karras(5, ct_end, ct_start,rho=1.2, customed_final_sigma= ct_real_end if self.denoise_to_zero else None)
+                if not self.ultilize_vae:
+                    log_sigmas = np.log(sigmas)
+                    sigmas = self.get_sigmas_karras(8, sigma_0, sigma_T, rho=5.0)
+                    ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
+                    ct_end = self._sigma_to_t(sigmas[6], log_sigmas)
+                    timesteps = self.get_sigmas_karras(5 + (1 if self.use_afs else 0) + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
+                else:
+                    log_sigmas = np.log(sigmas)
+                    sigmas = self.get_sigmas_karras(12, sigma_0, sigma_T,rho=12.0)
+                    ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
+                    ct_end = self._sigma_to_t(sigmas[10], log_sigmas)
+                    timesteps = self.get_sigmas_karras(6 + (1 if self.use_afs else 0) + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
             elif N == 6:
-                log_sigmas = np.log(sigmas)
-                sigmas = self.get_sigmas_karras(8, sigma_0, sigma_T, rho=5.0)
-                ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
-                ct_end = self._sigma_to_t(sigmas[6], log_sigmas)
-                if self.denoise_to_zero:
-                    ct_real_end = self._sigma_to_t(sigmas[-1], log_sigmas)
-                timesteps = self.get_sigmas_karras(6, ct_end, ct_start,rho=1.2, customed_final_sigma= ct_real_end if self.denoise_to_zero else None)
+                if not self.ultilize_vae:
+                    log_sigmas = np.log(sigmas)
+                    sigmas = self.get_sigmas_karras(8, sigma_0, sigma_T, rho=5.0)
+                    ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
+                    ct_end = self._sigma_to_t(sigmas[6], log_sigmas)
+                    timesteps = self.get_sigmas_karras(6 + (1 if self.use_afs else 0) + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
+                else:
+                    log_sigmas = np.log(sigmas)
+                    sigmas = self.get_sigmas_karras(12, sigma_0, sigma_T,rho=12.0)
+                    ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
+                    ct_end = self._sigma_to_t(sigmas[10], log_sigmas)
+                    timesteps = self.get_sigmas_karras(7 + (1 if self.use_afs else 0) + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
             elif N == 7:
                 log_sigmas = np.log(sigmas)
                 sigmas = self.get_sigmas_karras(8, sigma_0, sigma_T, rho=5.0)
                 ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
                 ct_end = self._sigma_to_t(sigmas[6], log_sigmas)
-                if self.denoise_to_zero:
-                    ct_real_end = self._sigma_to_t(sigmas[-1], log_sigmas)
-                timesteps = self.get_sigmas_karras(7, ct_end, ct_start,rho=1.2, customed_final_sigma= ct_real_end if self.denoise_to_zero else None)
+                timesteps = self.get_sigmas_karras(7 + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
             elif N == 8:
                 log_sigmas = np.log(sigmas).copy()
                 sigmas = self.get_sigmas_karras(8, sigma_0, sigma_T, rho=5.0)
                 ct_start = self._sigma_to_t(sigmas[0], log_sigmas)
                 ct_end = self._sigma_to_t(sigmas[6], log_sigmas)
-                if self.denoise_to_zero:
-                    ct_real_end = self._sigma_to_t(sigmas[-1], log_sigmas)
-                timesteps = self.get_sigmas_karras(8, ct_end, ct_start,rho=1.2, customed_final_sigma= ct_real_end if self.denoise_to_zero else None)
+                timesteps = self.get_sigmas_karras(8 + (1 if self.use_free_predictor else 0), ct_end, ct_start,rho=1.2)
 
-        if self.use_afs:
-            np.insert(timesteps,1,(timesteps[0]+timesteps[1]) / 2)
+        if self.use_afs and N > 6:
+            timesteps = np.insert(timesteps,1,(timesteps[0]+timesteps[1]) / 2)
 
 
         timesteps_tmp = copy.deepcopy(timesteps)
-        timesteps_tmp = np.append(timesteps_tmp, self._sigma_to_t(sigmas[-1], log_sigmas))
+        if not self.ultilize_vae:
+            timesteps_tmp = np.append(timesteps_tmp, self._sigma_to_t(sigmas[-1], log_sigmas))
         sigmas = np.array([self._t_to_sigma(t, log_sigmas) for t in timesteps_tmp])
         self.sigmas = torch.from_numpy(sigmas)
-        self.timesteps = torch.from_numpy(timesteps).to(device=device) 
+        if not self.ultilize_vae:
+            self.timesteps = torch.from_numpy(timesteps).to(device=device) 
+        else:
+            self.timesteps = torch.from_numpy(timesteps[:-1]).to(device=device) 
 
         self.num_inference_steps = len(timesteps)
 
@@ -523,6 +533,9 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         sigma = self.sigmas[self.step_index]
         alpha_t, sigma_t = self._sigma_to_alpha_sigma_t(sigma)
 
+        if model_output is None:
+            return None
+
         if self.predict_x0:
             if self.config.prediction_type == "epsilon":
                 x0_pred = (sample - sigma_t * model_output) / alpha_t
@@ -560,7 +573,7 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
 
     def multistep_uni_p_bh_update(
         self,
-        model_output: torch.Tensor,
+        model_output: torch.Tensor = None,
         *args,
         sample: torch.Tensor = None,
         order: int = None,
@@ -897,7 +910,7 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         )
 
         model_output_convert = self.convert_model_output(model_output, sample=sample)
-        if use_corrector:
+        if use_corrector and model_output_convert is not None:
             sample = self.multistep_uni_c_bh_update(
                 this_model_output=model_output_convert,
                 last_sample=self.last_sample,
@@ -908,8 +921,8 @@ class CustomedUniPCMultistepScheduler(SchedulerMixin, ConfigMixin):
         for i in range(self.solver_order - 1):
             self.model_outputs[i] = self.model_outputs[i + 1]
             self.timestep_list[i] = self.timestep_list[i + 1]
-
-        self.model_outputs[-1] = model_output_convert
+        if model_output_convert is not None:
+            self.model_outputs[-1] = model_output_convert
         self.timestep_list[-1] = timestep
 
         if self.config.lower_order_final:
