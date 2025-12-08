@@ -57,7 +57,7 @@ python txt2imgOrgXL.py --prompt "a painting of a virus monster playing guitar" -
 ```
 we also provide a 6 step version
 
-<img src=outputs/samples-unipc/00000.png width=512 />
+<img src=outputs/txt2img-samples-xl/samples-unipc/00000.png width=512 />
 
 ```
 python txt2imgUniPCXL.py --prompt "a painting of a virus monster playing guitar" --n_samples 1 --n_iter 1 --scale 7.5  --stop_steps 6
