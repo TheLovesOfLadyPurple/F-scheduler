@@ -1,4 +1,4 @@
-## Hyperparameters-are-all-you-need [[Huggingface Repo](https://huggingface.co/spaces/coralLight/Hyperparameters-are-all-you-need-UniPC-Dreamshaper)]
+## Hyperparameters-are-all-you-need [[Huggingface Repo](https://huggingface.co/spaces/coralLight/Hyperparameters-are-all-you-need-4k)] [[Huggingface Repo](coralLight/Hyperparameters-are-all-you-need-UniPC-XL)] [[Huggingface Repo](https://huggingface.co/spaces/coralLight/Hyperparameters-are-all-you-need-UniPC-Dreamshaper)] 
 
 <div align="center">
 <img src=gen_img_val_xl/comparison_grid_small.jpg />
@@ -57,10 +57,10 @@ python txt2imgOrgXL.py --prompt "a painting of a virus monster playing guitar" -
 ```
 we also provide a 6 step version
 
-<img src=gen_img_val_xl/samples-customedXL-6-retrain-free-full-trick-1-7.5/00000.png width=512 />
+<img src=outputs/samples-unipc/00000.png width=512 />
 
 ```
-python txt2imgXL.py --prompt "a painting of a virus monster playing guitar" --n_samples 1 --n_iter 1 --scale 7.5  --stop_steps 6
+python txt2imgUniPCXL.py --prompt "a painting of a virus monster playing guitar" --n_samples 1 --n_iter 1 --scale 7.5  --stop_steps 6
 ```
 
 ## Text to Image

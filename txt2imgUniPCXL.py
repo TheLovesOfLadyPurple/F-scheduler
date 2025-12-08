@@ -284,7 +284,7 @@ def main():
     repo_id = "madebyollin/sdxl-vae-fp16-fix"  # e.g., "distilbert/distilgpt2"
     filename = "sdxl_vae.safetensors"  # e.g., "pytorch_model.bin"
     downloaded_path = hf_hub_download(repo_id=repo_id, filename=filename,cache_dir=".")
-    npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
+    # npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
 
     vae = AutoencoderKL.from_single_file(downloaded_path, torch_dtype=DTYPE)
     vae.to('cuda')

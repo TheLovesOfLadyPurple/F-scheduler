@@ -168,7 +168,7 @@ def main():
     parser.add_argument(
         "--ddim_steps",
         type=int,
-        default=7,
+        default=8,
         help="number of ddim sampling steps",
     )
     parser.add_argument(
@@ -318,8 +318,13 @@ def main():
     repo_id = "madebyollin/sdxl-vae-fp16-fix"  # e.g., "distilbert/distilgpt2"
     vae = AutoencoderKL.from_pretrained("madebyollin/sdxl-vae-fp16-fix",torch_dtype=DTYPE) #from_single_file(downloaded_path, torch_dtype=torch_dtype)
     vae.to('cuda')
-    
     pipe = StableDiffusionXLPipeline.from_pretrained("John6666/nova-anime-xl-il-v120-sdxl",torch_dtype=DTYPE,vae=vae)
+    pipe.load_lora_weights('DervlexVenice/spo_sdxl_4k_p_10ep_lora_webui-base-model-sdxl'
+                           , weight_name='SPO_SDXL_4k_p_10ep_LoRA_webui_510261.safetensors'
+                           , adapter_name="spo")
+    pipe.load_lora_weights('DervlexVenice/aesthetic_quality_modifiers_masterpiece-style-illustrious'
+                           , weight_name='Aesthetic_Quality_Modifiers_Masterpiece_929497.safetensors'
+                           , adapter_name="aqm")
 
     # pipe = StableDiffusionXLPipeline.from_pretrained(
     #     "stabilityai/stable-diffusion-xl-base-1.0", torch_dtype=DTYPE, vae=vae
@@ -376,6 +381,11 @@ def main():
                     idx = 0
                     register_free_upblock2d(pipe, b1=1.0, b2=1.0, s1=1.0, s2=1.0)
                     register_free_crossattn_upblock2d(pipe, b1=1.0, b2=1.0, s1=1.0, s2=1.0)
+                    if len(pipe.scheduler.timesteps) > 5 + (1 if opt.use_afs else 0 ) and len(pipe.scheduler.timesteps) < 8 + (1 if opt.use_afs else 0 ):
+                        pipe.set_adapters(["spo", "aqm"], adapter_weights=[0.7, 0.7])
+                    else:
+                        pipe.set_adapters(["spo", "aqm"], adapter_weights=[0.25, 0.25]) #0.45 0.25
+
                     for t in tqdm(pipe.scheduler.timesteps):
                         # Still not enough. I will tell you, what is the best implementation.  Although not via the following code.
                         
