@@ -1,8 +1,8 @@
 import argparse, os, sys, glob
-import cv2
+
 import torch
 import numpy as np
-from omegaconf import OmegaConf
+
 from PIL import Image
 from tqdm import tqdm, trange
 from itertools import islice
