@@ -13,7 +13,7 @@ from torch import autocast
 from contextlib import contextmanager, nullcontext
 import accelerate
 import torchsde
-import pandas as pd
+
 import diffusers
 from pycocotools.coco import COCO
 from diffusers import (
