@@ -1,4 +1,4 @@
-## F-scheduler: illuminating the free-lunch design space for fast sampling of diffusion models [[Huggingface Repo](https://huggingface.co/spaces/coralLight/Hyperparameters-are-all-you-need-4k)] [[Huggingface Repo](coralLight/Hyperparameters-are-all-you-need-UniPC-XL)] [[Huggingface Repo](https://huggingface.co/spaces/coralLight/Hyperparameters-are-all-you-need-UniPC-Dreamshaper)] 
+## F-scheduler: illuminating the free-lunch design space for fast sampling of diffusion models [[Huggingface Repo](https://huggingface.co/spaces/coralLight/F-scheduler-4k)] [[Huggingface Repo](https://huggingface.co/spaces/coralLight/F-scheduler-DreamshaperXL)] [[Huggingface Repo](https://huggingface.co/spaces/coralLight/F-scheduler-DreamshaperXL)] 
 
 <div align="center">
 <img src=gen_img_val_xl/comparison_grid_small.jpg />
