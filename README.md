@@ -1,4 +1,4 @@
-## F-scheduler: illuminating the free-lunch design space for fast sampling of diffusion models [[Huggingface Repo](https://huggingface.co/spaces/coralLight/F-scheduler-4k)] [[Huggingface Repo](https://huggingface.co/spaces/coralLight/F-scheduler-DreamshaperXL)] [[Huggingface Repo](https://huggingface.co/spaces/coralLight/F-scheduler-DreamshaperXL)] 
+## F-scheduler: illuminating the free-lunch design space for fast sampling of diffusion models [[Huggingface demo](https://huggingface.co/spaces/coralLight/F-scheduler-4k)] [[Huggingface demo](https://huggingface.co/spaces/coralLight/F-scheduler-DreamshaperXL)] [[Huggingface demo](https://huggingface.co/spaces/coralLight/F-scheduler-DreamshaperXL)] 
 
 <div align="center">
 <img src=gen_img_val_xl/comparison_grid_small.jpg />
