@@ -25,7 +25,7 @@ python customed_timeschedule_sampler_xl_laion.py
 ## Requirements
 This project use diffusers, which means you can simply install the environment by using pip install without confronting any conflict.  
 ```
-conda env create --name hyper python=3.9
+conda create --name empurple python=3.9
 pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu129
 pip install -r requirements.txt 
 ```
