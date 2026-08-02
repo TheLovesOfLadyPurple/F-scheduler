@@ -240,7 +240,7 @@ def main():
     device = accelerator.device
     
     seed_everything(opt.seed)
-    npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
+    # npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
 
     DTYPE = torch.float16  # torch.float16 works as well, but pictures seem to be a bit worse
     device = "cuda" 

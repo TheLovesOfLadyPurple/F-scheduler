@@ -155,7 +155,7 @@ def main():
         "--prompt",
         type=str,
         nargs="?",
-        default="A man holding a cell phone with a pack of Marlboro Lights on his lap",
+        default="A weathered Victorian house surrounded by lush autumn foliage and overgrown garden paths, its deep teal-painted wood faded and peeling, orange leaves scattering across the stone steps and tangled in the railings of the ornate wooden porch, delicate orange wildflowers growing from cracks in the stairs, arched twin doors with stained glass glowing faintly from within, warm golden light filtering through dusted windows, a few butterflies fluttering through the crisp autumn air, the scene bathed in soft daylight with painterly shadows, magical realism meets gothic nostalgia, cinematic composition with high detail and storybook charm, photorealistic yet slightly stylized, peaceful and enchanted with a hint of mystery",
         help="the prompt to render",
     )
     parser.add_argument(

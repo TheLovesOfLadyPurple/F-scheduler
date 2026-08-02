@@ -271,7 +271,7 @@ def main():
     pipe = StableDiffusionPipeline.from_pretrained('sd-legacy/stable-diffusion-v1-5')
     # pipe = StableDiffusionPipeline.from_single_file( "./v1-5-pruned-emaonly.safetensors")
     
-    npn_net = NPNet64('SD1.5', opt.npnet_checkpoint)
+    # npn_net = NPNet64('SD1.5', opt.npnet_checkpoint)
     
     pipe.to(device=device, torch_dtype=DTYPE)
     if opt.use_free_net:
@@ -419,8 +419,8 @@ def main():
                     
                     
                     x = torch.randn([opt.n_samples, *shape], device=device) 
-                    if (opt.stop_steps != -1 or opt.ddim_steps <= 8) and not opt.force_not_use_NPNet:
-                        x = npn_net(x,c)
+                    # if (opt.stop_steps != -1 or opt.ddim_steps <= 8) and not opt.force_not_use_NPNet:
+                    #     x = npn_net(x,c)
                     extra_args = {'cond': c, 'uncond': uc, 'cond_scale': opt.scale}
                     noise_training_list = {}
                     samples, _ = sampler.sample(

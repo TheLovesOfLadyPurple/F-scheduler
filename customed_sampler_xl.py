@@ -936,7 +936,7 @@ def main():
     # pipe = StableDiffusionXLPipeline.from_pretrained("stabilityai/stable-diffusion-xl-base-1.0",torch_dtype=torch.float16,vae=vae)
     
     pipe.to('cuda')
-    npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
+    # npn_net = NPNet128('SDXL', opt.npnet_checkpoint)
     
     
     # pipe.to(device=device, torch_dtype=DTYPE)
@@ -1187,8 +1187,8 @@ def main():
                 )
                     # prompt_embeds = torch.cat([negative_prompt_embeds, prompt_embeds], dim=0)
 
-                if (opt.stop_steps != -1 or opt.ddim_steps <= 8) and not opt.force_not_use_NPNet:
-                    x = npn_net(x,c)
+                # if (opt.stop_steps != -1 or opt.ddim_steps <= 8) and not opt.force_not_use_NPNet:
+                #     x = npn_net(x,c)
                     
                 extra_args = {'prompt': prompts, 'cond_scale': opt.scale}
                 noise_training_list = {}
