@@ -33,7 +33,7 @@ To find a proper version of torch, please use the following link:
 https://pytorch.org/get-started/locally/
 
 In this project, we also provide a upgrade implementation, which ultilize the golden noise to generate the images.  The checkpoint is in: https://1drv.ms/u/c/4e158dd7b255cd87/EaI2QngMC_lArhWGcjG5v7ABSm-3z8-Tm_sd2dN5nNIAYQ?e=tNKvzR and https://1drv.ms/u/c/4e158dd7b255cd87/EYzPIaAnN9dEpmxvHfys7M0Bv8_qsIGdt9wMf5yosMNq2w?e=t5Fd6b .  To run the code properly, you should also download coco 2014 and coco 2017 dataset from https://cocodataset.org/#home 
-And the fp16 vae is in https://huggingface.co/madebyollin/sdxl-vae-fp16-fix .  or download it directly from the following link: https://1drv.ms/u/c/4e158dd7b255cd87/ETUoIRuJcJxBhcWA4yq0_kIBwXoU0WRxXcpp6Z5QU2w9iA?e=Vo9p2I
+And the fp16 vae is in https://huggingface.co/madebyollin/sdxl-vae-fp16-fix .  or download it directly from the following link: https://1drv.ms/u/c/4e158dd7b255cd87/ETUoIRuJcJxBhcWA4yq0_kIBwXoU0WRxXcpp6Z5QU2w9iA?e=Vo9p2I To properly use it, you should delete the Annotation symbols in the code using npn_net.
 You could also try to use fp32 vae.
 Meanwhile, you can use the counterfeit v3.0 to generate acgn image.  The result is in ./gen_img_val_v15. The model is in: https://civitai.com/models/4468/counterfeit-v30 .  You should place the model into the ./counterfeit
 
